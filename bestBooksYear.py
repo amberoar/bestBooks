@@ -12,6 +12,24 @@ def get_data(url, headers=None):
     return soup
 
 """
+This function will stip out inconsistencies in book titles so that the function will calculate
+appropriate number of matches. This mainly includes ':' and '('
+"""
+def standardize_title(title):
+    if ':' in title:
+        new_title = title.split(':')
+        new_title = new_title[0].rstrip()
+        if ' (' in title:
+            new_title = new_title.split(' (')
+            new_title = new_title[0].rstrip()
+    elif ' (' in title:
+        new_title = title.split(' (')
+        new_title = new_title[0].rstrip()
+    else:
+        new_title = title.rstrip()
+    return new_title
+
+"""
 This function will return a list of the best books in 2020 based on Penguin Random House Publisher
 """
 def penguin_parser():
@@ -20,11 +38,8 @@ def penguin_parser():
     penguin_titles = []
     for data in soup.findAll('li', attrs={'class': 'inner-facade'}):
         title = data['ttl']
-        if '(' in title:
-            new_title = title.split('(')
-            penguin_titles.append(new_title[0].rstrip())
-        else:
-            penguin_titles.append(title)
+        new_title = standardize_title(title)
+        penguin_titles.append(new_title)
     return penguin_titles
 
 """
@@ -41,10 +56,8 @@ def amazon_parser():
         for data in soup.findAll('h2', attrs={'class': 'a-size-mini'}):
             title_element = data.find('span')
             title = title_element.text
-            # most amazon books have : A Novel after the title and this is preventing matches
-            # against other lists. We we will only be saving the main book title
-            new_title = title.split(':')
-            amazon_titles.append(new_title[0])
+            new_title = standardize_title(title)
+            amazon_titles.append(new_title)
         pageNo += 1
         return amazon_titles
 
@@ -56,7 +69,8 @@ def nytime_parser():
     ny_titles = []
     for data in soup.findAll('h2', attrs={'class': 'css-1tt7ig1'}):
         title = data.text
-        ny_titles.append(title)
+        new_title = standardize_title(title)
+        ny_titles.append(new_title)
     return ny_titles
 
 """
@@ -68,14 +82,8 @@ def bostonglobe_parser():
     for data in soup.findAll('h3', attrs={'class': 'list__title'}):
         title = data.find('a')
         title_text = title.text
-        # same problem as amazon, need to eliminate the extra title text
-        if ':' in title_text:
-            new_title = title_text.split(':')
-            # need to get rid of last white space in title
-            boston_titles.append(new_title[0].rstrip())
-        else:
-            # need to get rid of last white space in title
-            boston_titles.append(title_text.rstrip())
+        new_title = standardize_title(title_text)
+        boston_titles.append(new_title)
     return boston_titles
 
 """
@@ -87,14 +95,8 @@ def washingtonpost_parser():
     for data in soup.findAll('div', attrs={'class': 'book-container'}):
         title = data.find('h3')
         title_text = title.text
-        # same problem as amazon, need to eliminate the extra title text
-        if ':' in title_text:
-            new_title = title_text.split(':')
-            # need to get rid of last white space in title
-            post_titles.append(new_title[0].rstrip())
-        else:
-            # need to get rid of last white space in title
-            post_titles.append(title_text.rstrip())
+        new_title = standardize_title(title_text)
+        post_titles.append(new_title)
     return post_titles
 
 """
@@ -122,3 +124,4 @@ def best_of_best():
     print(best_books)
 
 best_of_best()
+# penguin_parser()
