@@ -121,7 +121,9 @@ def best_of_best():
                 best_books[title] = 1
     # sort dictionary values by the highest number of occurrences in a list
     best_books = dict(sorted(best_books.items(), key=lambda item: item[1], reverse=True))
-    print(best_books)
+    # only print books that are in at least 2 lists
+    final_books = [key for key, value in best_books.items() if value > 1]
+    print(final_books)
 
 best_of_best()
 # penguin_parser()
