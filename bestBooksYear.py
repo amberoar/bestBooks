@@ -1,6 +1,8 @@
 from bs4 import BeautifulSoup
 import requests
 import re
+import json
+import config
 
 """
 This function will grab the content from the the specified url.
@@ -125,5 +127,31 @@ def best_of_best():
     final_books = [key for key, value in best_books.items() if value > 1]
     print(final_books)
 
-best_of_best()
+"""
+This function will grab more information about the top books from the google books api.
+"""
+def get_book_info():
+    all_book_info = []
+    book_details = {}
+    book_title = 'Deacon+King+Kong'
+    r = requests.get(('https://www.googleapis.com/books/v1/volumes?q=intitle:{}&key='+config.api_key).format(book_title))
+    print(config.api_key)
+    content = r.content
+    print(content)
+    json_object = json.loads(content)
+
+    additional_book_info = []
+    book_data = json_object['items']
+    book_match = [item['id'] for item in book_data if item['volumeInfo']['publishedDate'] == '2020']
+    print(book_match)
+    for item in book_data:
+        print(item['id'])
+        if item['id'] == book_match[0]:
+            print('true')
+            book_details['description'] = item['volumeInfo']['description']
+            all_book_info.append(book_details)
+    print(all_book_info)
+
+get_book_info()
+# best_of_best()
 # penguin_parser()
