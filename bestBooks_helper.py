@@ -166,8 +166,3 @@ def export_to_csv(books):
         writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(books)
-
-books = get_book_info()
-export_to_csv(books)
-# best_of_best()
-# penguin_parser()
