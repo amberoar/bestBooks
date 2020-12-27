@@ -3,6 +3,7 @@ import requests
 import re
 import json
 import config
+import csv
 
 """
 This function will grab the content from the the specified url.
@@ -125,7 +126,6 @@ def best_of_best():
     best_books = dict(sorted(best_books.items(), key=lambda item: item[1], reverse=True))
     # only print books that are in at least 2 lists
     final_books = [key for key, value in best_books.items() if value > 1]
-    print(final_books)
 
 """
 This function will grab more information about the top books from the google books api.
@@ -135,23 +135,39 @@ def get_book_info():
     book_details = {}
     book_title = 'Deacon+King+Kong'
     r = requests.get(('https://www.googleapis.com/books/v1/volumes?q=intitle:{}&key='+config.api_key).format(book_title))
-    print(config.api_key)
     content = r.content
-    print(content)
     json_object = json.loads(content)
 
     additional_book_info = []
     book_data = json_object['items']
+    # the assumption here is that the book title match published in 2020 will be the
+    # valid result
     book_match = [item['id'] for item in book_data if item['volumeInfo']['publishedDate'] == '2020']
-    print(book_match)
+    # todo check if more than one match exists so data can be looked at for accuracy
     for item in book_data:
-        print(item['id'])
         if item['id'] == book_match[0]:
-            print('true')
+            book_details['title'] = item['volumeInfo']['title']
+            authors = item['volumeInfo']['authors']
+            # authors returns a lits, but for now, just grab the first one.
+            book_details['author'] = authors[0]
             book_details['description'] = item['volumeInfo']['description']
+            book_details['pageCount'] = item['volumeInfo']['pageCount']
+            book_details['moreInfo'] = item['volumeInfo']['infoLink']
             all_book_info.append(book_details)
     print(all_book_info)
+    return all_book_info
 
-get_book_info()
+"""
+This function will prent the data from get_book_info to a csv
+"""
+def export_to_csv(books):
+    with open('best_books_2020.csv', mode='w') as csv_file:
+        fieldnames = ['title', 'author', 'description', 'pageCount', 'moreInfo']
+        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(books)
+
+books = get_book_info()
+export_to_csv(books)
 # best_of_best()
 # penguin_parser()
