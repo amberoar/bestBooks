@@ -1,9 +1,8 @@
 from bs4 import BeautifulSoup
 import requests
-import re
-import json
 import config
 import csv
+import json
 
 """
 This function will grab the content from the the specified url.
