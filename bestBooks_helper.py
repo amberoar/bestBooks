@@ -19,6 +19,7 @@ This function will stip out inconsistencies in book titles so that the function 
 appropriate number of matches. This mainly includes ':' and '('
 """
 def standardize_title(title):
+    title = title.lstrip()
     if ':' in title:
         new_title = title.split(':')
         new_title = new_title[0].rstrip()
@@ -103,6 +104,60 @@ def washingtonpost_parser():
     return post_titles
 
 """
+Returns a list of top 10 books from Barnes and Noble
+"""
+def barnes_parser():
+    soup = get_data("https://www.barnesandnoble.com/b/books/barnes-nobles-best-books-of-2020/barnes-nobles-10-best-books-of-2020/_/N-29Z8q8Z2v0b")
+    barnes_titles = []
+    for data in soup.findAll('a', attrs={'class': 'pImageLink'}):
+        title_text = data['title']
+        new_title = standardize_title(title_text)
+        barnes_titles.append(new_title)
+    return barnes_titles
+
+"""
+Returns a list of top books from book riot
+"""
+def bookriot_parser():
+    soup = get_data("https://bookriot.com/best-books-of-2020/")
+    bookriot_titles = []
+    for data in soup.findAll('h2', attrs={'class': 'book-title'}):
+        title_text = data.text
+        new_title = standardize_title(title_text)
+        bookriot_titles.append(new_title)
+    return bookriot_titles
+
+"""
+Returns a list of top books from goodreads
+"""
+def goodreads_parser():
+    soup = get_data("https://www.goodreads.com/book/popular_by_date/2020")
+    goodreads_titles = []
+    for data in soup.findAll('a', attrs={'class': 'bookTitle'}):
+        title = data.find('span')
+        title_text = title.text
+        new_title = standardize_title(title_text)
+        goodreads_titles.append(new_title)
+    return goodreads_titles
+
+"""
+Use good reads to get author for each book to use in google api query
+"""
+def goodreads_author():
+    book_author = {}
+    soup = get_data("https://www.goodreads.com/book/popular_by_date/2020")
+    for data in soup.findAll('tr'):
+        title = data.find('a', attrs={'class': 'bookTitle'})
+        author = data.find('a', attrs={'class': 'authorName'})
+        title_text = title.text
+        new_title = standardize_title(title_text)
+        author_text = author.text
+        book_author[new_title] = author_text
+    return book_author
+
+goodreads_author()
+
+"""
 This function will look for matching titles between the two lists and return a list of books sorted
 by occurrence in multiple lists.
 """
@@ -112,8 +167,12 @@ def best_of_best():
     nytimes = nytime_parser()
     boston = bostonglobe_parser()
     post = washingtonpost_parser()
+    barnes = barnes_parser()
+    bookriot = bookriot_parser()
+    goodreads = goodreads_parser()
     # this is a dictionary for all top books by source
-    all_books = {'amazon':amazon, 'penguin':penguin, 'nytimes': nytimes, 'boston': boston, 'post': post}
+    all_books = {'amazon':amazon, 'penguin':penguin, 'nytimes': nytimes, 'boston': boston, 'post': post,
+                 'barnes': barnes, 'bookriot': bookriot, 'goodreads': goodreads}
     # this dictionary will hold a count of unique books based on number of lists that the book appears
     best_books = {}
     for value in all_books.keys():
@@ -124,47 +183,44 @@ def best_of_best():
                 best_books[title] = 1
     # sort dictionary values by the highest number of occurrences in a list
     best_books = dict(sorted(best_books.items(), key=lambda item: item[1], reverse=True))
+    print(best_books)
     # only print books that are in at least 2 lists
     final_books = [key for key, value in best_books.items() if value > 1]
+    print(final_books)
     return final_books
 
 """
 This function will grab more information about the top books from the google books api.
 """
-def get_book_info(book_titles):
+def get_book_info(book_titles, author_list):
     all_book_info = []
 
     for title in book_titles:
         book_details = {}
+        try:
+            author = author_list[title]
+        except:
+            # not sure why, but the correct google api result is returned when this is used for author vs empty
+            author = '" "'
         book_title = title.replace(" ", "+")
 
-        r = requests.get(('https://www.googleapis.com/books/v1/volumes?q="{}"&maxResults=5&key='+config.api_key).format(book_title))
+        # assumption here is that title and author search will yield 1 result
+        r = requests.get(('https://www.googleapis.com/books/v1/volumes?q="{}"+inauthor:{}&maxResults=1&key='+config.api_key).format(book_title, author))
         content = r.content
         json_object = json.loads(content)
-        print(json.dumps(json_object, indent=2))
 
         book_data = json_object['items']
-        # looking for books published in 2020
-        book_match = [item['id'] for item in book_data if '2020' in item['volumeInfo']['publishedDate']]
-        print(book_match)
-        # todo check if more than one match exists so data can be looked at for accuracy
+
         for item in book_data:
-            title = item['volumeInfo']['title']
-            # need to do a check to see if the book is already in the list. Ran across different versions
-            # of the book published in 2020
-            if len(all_book_info) > 1 and title in all_book_info:
-                pass
-            else:
-                if item['id'] == book_match[0]:
-                    book_details['title'] = title
-                    authors = item['volumeInfo']['authors']
-                    # authors returns a lits, but for now, just grab the first one.
-                    book_details['author'] = authors[0]
-                    book_details['description'] = item['volumeInfo']['description']
-                    book_details['pageCount'] = item['volumeInfo']['pageCount']
-                    book_details['moreInfo'] = item['volumeInfo']['infoLink']
-                    book_details['publishedDate'] = item['volumeInfo']['publishedDate']
-                    all_book_info.append(book_details)
+            book_details['title'] = title
+            authors = item['volumeInfo']['authors']
+            # authors returns a lits, but for now, just grab the first one.
+            book_details['author'] = authors[0]
+            book_details['description'] = item['volumeInfo']['description']
+            book_details['pageCount'] = item['volumeInfo']['pageCount']
+            book_details['moreInfo'] = item['volumeInfo']['infoLink']
+            book_details['publishedDate'] = item['volumeInfo']['publishedDate']
+            all_book_info.append(book_details)
     return all_book_info
 
 """
